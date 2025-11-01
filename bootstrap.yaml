@@ -143,6 +143,8 @@ Resources:
             Value: !Ref AWS::AccountId
           - Name: PROJECT_ID
             Value: !Ref ProjectId
+          - Name: REGISTRY
+            Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectId}'
       Source:
         Type: GITHUB
         Location: https://github.com/cvhome-saas/cvhome.git
@@ -152,8 +154,9 @@ Resources:
             pre_build:
               commands:
                 - echo "Logging in to Amazon ECR..."
-                - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                - export ECR_TOKEN=$(aws ecr get-login-password --region $AWS_REGION)
                 - echo "Build started on `date`"
+                - echo "REGISTRY=$REGISTRY"
             build:
               commands:
                 - echo "Building application with Gradle..."
