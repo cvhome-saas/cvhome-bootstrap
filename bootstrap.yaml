@@ -8,6 +8,28 @@ Parameters:
     MinLength: 10
     MaxLength: 10
 
+  DomainName:
+    Type: String
+    Description: Domain name for the application
+    Default: ''
+
+  StripeKey:
+    Type: String
+    Description: Stripe API key
+    NoEcho: true
+    Default: ''
+
+  StripeWebhookSigningKey:
+    Type: String
+    Description: Stripe webhook signing key
+    NoEcho: true
+    Default: ''
+
+  KeycloakAdminPassword:
+    Type: String
+    Description: Keycloak admin password for Keycloak sys-admin@mail.com
+    NoEcho: true
+
 Resources:
   StoreCoreGatewayRepository:
     Type: AWS::ECR::Repository
@@ -165,7 +187,7 @@ Resources:
               commands:
                 - echo "Building application with Gradle..."
                 - chmod +x gradlew
-                - ./gradlew clean build bootBuildImage  --publishImage -x test -x check --no-daemon
+                - ./gradlew clean build bootBuildImage -x test -x check --no-daemon
             post_build:
               commands:
                 - echo "Build completed on `date`"
@@ -235,6 +257,44 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+
+  # SSM Parameter for Domain Configuration
+  DomainConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/domain'
+      Type: String
+      Value: !Sub |
+        {
+          "domain": "${DomainName}"
+        }
+      Description: Domain configuration for the application
+
+  # SSM Parameter for Stripe Configuration
+  StripeConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/stripe'
+      Type: String
+      Value: !Sub |
+        {
+          "stripeKey": "${StripeKey}",
+          "stripeWebhookSigningKey": "${StripeWebhookSigningKey}"
+        }
+      Description: Stripe configuration including API key and webhook signing key
+
+  # SSM Parameter for Keycloak Configuration
+  KeycloakConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/kc'
+      Type: String
+      Value: !Sub |
+        {
+          "username": "sys-admin@mail.com",
+          "password": "${KeycloakAdminPassword}"
+        }
+      Description: Keycloak admin configuration
 
 Outputs:
   ProjectId:
