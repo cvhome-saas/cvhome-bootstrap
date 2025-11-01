@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ECR repositories for store-core and store-pod services.
+Description: cvhome bootstrap 
 
 Parameters:
   ProjectId:
@@ -96,6 +96,56 @@ Resources:
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/store-pod-saas-gateway'
 
+
+  DomainConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/domain'
+      Type: String
+      Value: !Sub |
+        {
+          "domain": "${DomainName}"
+        }
+      Description: Domain configuration for the application
+  StripeConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/stripe'
+      Type: String
+      Value: !Sub |
+        {
+          "stripeKey": "${StripeKey}",
+          "stripeWebhookSigningKey": "${StripeWebhookSigningKey}"
+        }
+      Description: Stripe configuration including API key and webhook signing key
+  KeycloakConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectId}/config/kc'
+      Type: String
+      Value: !Sub |
+        {
+          "username": "sys-admin@mail.com",
+          "password": "${KeycloakAdminPassword}"
+        }
+      Description: Keycloak admin configuration
+
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectId}-tf-state'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
   # CodeBuild Service Role
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
@@ -139,7 +189,6 @@ Resources:
                   - !GetAtt TerraformStateBucket.Arn
                   - !Sub '${TerraformStateBucket.Arn}/*'
 
-  # CodeBuild Project for Cvhome Application
   CvhomeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -196,7 +245,6 @@ Resources:
                 # Tag and push images to ECR repositories
                 # Adjust image names based on your bootBuildImage configuration
 
-  # CodeBuild Project for Cvhome Infrastructure
   CvhomeInfraBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -243,59 +291,8 @@ Resources:
               commands:
                 - echo "Terraform deployment completed on `date`"
 
-  TerraformStateBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub '${ProjectId}-tf-state'
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
 
-  # SSM Parameter for Domain Configuration
-  DomainConfigParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${ProjectId}/config/domain'
-      Type: String
-      Value: !Sub |
-        {
-          "domain": "${DomainName}"
-        }
-      Description: Domain configuration for the application
 
-  # SSM Parameter for Stripe Configuration
-  StripeConfigParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${ProjectId}/config/stripe'
-      Type: String
-      Value: !Sub |
-        {
-          "stripeKey": "${StripeKey}",
-          "stripeWebhookSigningKey": "${StripeWebhookSigningKey}"
-        }
-      Description: Stripe configuration including API key and webhook signing key
-
-  # SSM Parameter for Keycloak Configuration
-  KeycloakConfigParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${ProjectId}/config/kc'
-      Type: String
-      Value: !Sub |
-        {
-          "username": "sys-admin@mail.com",
-          "password": "${KeycloakAdminPassword}"
-        }
-      Description: Keycloak admin configuration
 
 Outputs:
   ProjectId:
