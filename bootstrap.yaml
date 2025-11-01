@@ -145,6 +145,10 @@ Resources:
             Value: !Ref ProjectId
           - Name: REGISTRY
             Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectId}'
+          - Name: JAVA_OPTS
+            Value: '-Xmx8g -Xms2g'
+          - Name: GRADLE_OPTS
+            Value: '-Dorg.gradle.jvmargs="-Xmx8g -Xms2g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.daemon=true'
       Source:
         Type: GITHUB
         Location: https://github.com/cvhome-saas/cvhome.git
@@ -162,11 +166,18 @@ Resources:
                 - export ECR_TOKEN=$(aws ecr get-login-password --region $AWS_REGION)
                 - echo "Build started on `date`"
                 - echo "REGISTRY=$REGISTRY"
+                - echo "Configuring Gradle memory settings..."
+                - mkdir -p ~/.gradle
+                - echo "org.gradle.jvmargs=-Xmx8g -Xms2g -XX:MaxMetaspaceSize=1g" >> ~/.gradle/gradle.properties
+                - echo "org.gradle.daemon=true" >> ~/.gradle/gradle.properties
+                - echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
+                - echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+                - cat ~/.gradle/gradle.properties
             build:
               commands:
                 - echo "Building application with Gradle..."
                 - chmod +x gradlew
-                - ./gradlew clean build bootBuildImage -x test -x check
+                - ./gradlew clean build bootBuildImage -x test -x check --no-daemon
             post_build:
               commands:
                 - echo "Build completed on `date`"
