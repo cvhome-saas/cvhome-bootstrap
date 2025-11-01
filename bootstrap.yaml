@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR repositories for store-core and store-pod services.
+
+Parameters:
+  ProjectId:
+    Type: String
+    Description: Project ID.
+    MinLength: 10
+    MaxLength: 10
+
+Resources:
+  StoreCoreGatewayRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/store-core-gateway'
+
+  CoreAuthRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/core-auth'
+
+  ManagerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/manager'
+
+  SubscriptionRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/subscription'
+
+  StoreUIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/store-ui'
+
+  WelcomeUIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-core/welcome-ui'
+
+  MerchantRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/merchant'
+
+  ContentRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/content'
+
+  CatalogRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/catalog'
+
+  OrderRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/order'
+
+  LandingUIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/landing-ui'
+
+  StoreFrontRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/store-front'
+
+  MerchantUIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/merchant-ui'
+
+  StorePodSaasGatewayRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}/store-pod/store-pod-saas-gateway'
+
+  CvhomeCodeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}-cvhome'
+      RepositoryDescription: Cvhome application repository
+
+  CvhomeInfraCodeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryName: !Sub '${ProjectId}-cvhome-infra'
+      RepositoryDescription: Cvhome infrastructure repository
+
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectId}-tf-state'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+Outputs:
+  ProjectId:
+    Description: Project ID
+    Value: !Ref ProjectId
+    Export:
+      Name: !Sub '${AWS::StackName}-ProjectId'
+
+  TerraformStateBucketName:
+    Description: S3 bucket for Terraform state
+    Value: !Ref TerraformStateBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-TfStateBucket'
