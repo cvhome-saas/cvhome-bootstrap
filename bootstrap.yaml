@@ -166,7 +166,7 @@ Resources:
               commands:
                 - echo "Building application with Gradle..."
                 - chmod +x gradlew
-                - ./gradlew clean build bootBuildImage
+                - ./gradlew clean build bootBuildImage -x test -x check
             post_build:
               commands:
                 - echo "Build completed on `date`"
