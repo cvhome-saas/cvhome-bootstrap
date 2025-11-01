@@ -248,7 +248,7 @@ Resources:
   CvhomeInfraBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${ProjectId}-cvhome-infra-deploy'
+      Name: !Sub '${ProjectId}-cvhome-ecs-fargate-infra-deploy'
       Description: Deploy cvhome infrastructure using Terraform
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Artifacts:
@@ -266,7 +266,7 @@ Resources:
             Value: !Ref TerraformStateBucket
       Source:
         Type: GITHUB
-        Location: https://github.com/cvhome-saas/cvhome-infra.git
+        Location: https://github.com/cvhome-saas/cvhome-ecs-fargate-infra.git
         BuildSpec: |
           version: 0.2
           phases:
