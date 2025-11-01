@@ -64,11 +64,6 @@ Resources:
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/landing-ui'
 
-  StoreFrontRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/store-front'
-
   MerchantUIRepository:
     Type: AWS::ECR::Repository
     Properties:
