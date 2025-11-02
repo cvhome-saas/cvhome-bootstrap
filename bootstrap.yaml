@@ -230,6 +230,181 @@ Resources:
                   - !GetAtt TerraformStateBucket.Arn
                   - !Sub '${TerraformStateBucket.Arn}/*'
 
+  TerraformDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectId}-terraform-deployment-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: TerraformDeploymentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # CloudWatch Logs
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource: '*'
+              
+              # S3 - Terraform State and Application Buckets
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: '*'
+              
+              # ECR
+              - Effect: Allow
+                Action:
+                  - ecr:*
+                Resource: '*'
+              
+              # ECS
+              - Effect: Allow
+                Action:
+                  - ecs:*
+                  - ecs:CreateCluster
+                  - ecs:CreateService
+                  - ecs:UpdateService
+                  - ecs:DeleteService
+                  - ecs:RegisterTaskDefinition
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:DescribeClusters
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListClusters
+                  - ecs:ListServices
+                  - ecs:ListTaskDefinitions
+                Resource: '*'
+              
+              # RDS
+              - Effect: Allow
+                Action:
+                  - rds:*
+                Resource: '*'
+              
+              # CloudFront
+              - Effect: Allow
+                Action:
+                  - cloudfront:*
+                Resource: '*'
+              
+              # Route53
+              - Effect: Allow
+                Action:
+                  - route53:*
+                Resource: '*'
+              
+              # SSM Parameter Store
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:PutParameter
+                  - ssm:DeleteParameter
+                  - ssm:AddTagsToResource
+                  - ssm:ListTagsForResource
+                  - ssm:RemoveTagsFromResource
+                  - ssm:DescribeParameters
+                Resource: '*'
+              
+              # Secrets Manager
+              - Effect: Allow
+                Action:
+                  - secretsmanager:*
+                Resource: '*'
+              
+              # VPC and Networking
+              - Effect: Allow
+                Action:
+                  - ec2:*
+                Resource: '*'
+              
+              # Application Load Balancer / Network Load Balancer
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:*
+                Resource: '*'
+              
+              # IAM (Limited to specific patterns)
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListPolicies
+                  - iam:ListPolicyVersions
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:UpdateRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:CreatePolicy
+                  - iam:DeletePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:DeletePolicyVersion
+                  - iam:PassRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:TagPolicy
+                  - iam:UntagPolicy
+                Resource: '*'
+              
+              # CloudWatch
+              - Effect: Allow
+                Action:
+                  - cloudwatch:*
+                Resource: '*'
+              
+              # Application Auto Scaling
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                Resource: '*'
+              
+              # ACM (Certificate Manager)
+              - Effect: Allow
+                Action:
+                  - acm:*
+                Resource: '*'
+              
+              # KMS
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:Encrypt
+                  - kms:DescribeKey
+                  - kms:CreateGrant
+                  - kms:ListAliases
+                  - kms:ListKeys
+                Resource: '*'
+              
+              # Service Discovery
+              - Effect: Allow
+                Action:
+                  - servicediscovery:*
+                Resource: '*'
+              
+              # ElastiCache
+              - Effect: Allow
+                Action:
+                  - elasticache:*
+                Resource: '*'
+
   CvhomeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -291,7 +466,7 @@ Resources:
     Properties:
       Name: !Sub '${ProjectId}-cvhome-ecs-fargate-infra-deploy'
       Description: Deploy cvhome infrastructure using Terraform
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !GetAtt TerraformDeploymentRole.Arn
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
