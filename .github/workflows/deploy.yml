@@ -1,0 +1,33 @@
+name: Deploy CloudFormation Template to S3
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bootstrap.yaml'
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Change to your preferred region
+
+      - name: Upload template to S3
+        run: |
+          aws s3 cp bootstrap.yaml s3://cvhome-saas/assets/bootstrap.yaml --acl public-read
+          echo "Template uploaded successfully!"
+
+      - name: Verify upload
+        run: |
+          echo "Template URL: https://s3.amazonaws.com/cvhome-saas/assets/bootstrap.yaml"
