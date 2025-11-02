@@ -7,7 +7,6 @@ Metadata:
       - Label:
           default: Project Configuration
         Parameters:
-          - ProjectId
           - DomainZoneId
       - Label:
           default: Keycloak Configuration
@@ -19,8 +18,6 @@ Metadata:
           - StripeKey
           - StripeWebhockSigningKey
     ParameterLabels:
-      ProjectId:
-        default: Project ID
       DomainZoneId:
         default: Domain Zone Id
       KeycloakAdminPassword:
@@ -31,12 +28,6 @@ Metadata:
         default: Stripe Webhook Signing Key
 
 Parameters:
-  ProjectId:
-    Type: String
-    Description: Project ID.
-    MinLength: 10
-    MaxLength: 10
-
   DomainZoneId:
     Type: AWS::Route53::HostedZone::Id
     Description: Select a Route53 hosted zone for the application. 
@@ -59,89 +50,154 @@ Parameters:
     NoEcho: true
 
 Resources:
+  # Lambda execution role for generating random project ID
+  GenerateProjectIdFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Lambda function to generate random project ID
+  GenerateProjectIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt GenerateProjectIdFunctionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import json
+          import random
+          import string
+          
+          def handler(event, context):
+              try:
+                  print(f"Event: {json.dumps(event)}")
+          
+                  if event['RequestType'] == 'Delete':
+                      # Return the same project ID on delete
+                      project_id = event['PhysicalResourceId']
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'ProjectId': project_id}, project_id)
+                      return
+          
+                  if event['RequestType'] == 'Update':
+                      # Return the same project ID on update to prevent recreation
+                      project_id = event['PhysicalResourceId']
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'ProjectId': project_id}, project_id)
+                      return
+          
+                  # Generate random 10-character alphanumeric project ID (lowercase)
+                  project_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+          
+                  response_data = {
+                      'ProjectId': project_id
+                  }
+          
+                  print(f"Generated Project ID: {project_id}")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, project_id)
+          
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Custom resource to generate project ID
+  GenerateProjectIdCustomResource:
+    Type: Custom::GenerateProjectId
+    Properties:
+      ServiceToken: !GetAtt GenerateProjectIdFunction.Arn
+
   StoreCoreGatewayRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/store-core-gateway'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/store-core-gateway'
       EmptyOnDelete: true
 
   CoreAuthRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/core-auth'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/core-auth'
       EmptyOnDelete: true
 
   ManagerRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/manager'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/manager'
       EmptyOnDelete: true
 
   SubscriptionRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/subscription'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/subscription'
       EmptyOnDelete: true
 
   StoreUIRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/store-ui'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/store-ui'
       EmptyOnDelete: true
 
   WelcomeUIRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-core/welcome-ui'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/welcome-ui'
       EmptyOnDelete: true
 
   MerchantRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/merchant'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/merchant'
       EmptyOnDelete: true
 
   ContentRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/content'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/content'
       EmptyOnDelete: true
 
   CatalogRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/catalog'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/catalog'
       EmptyOnDelete: true
 
   OrderRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/order'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/order'
       EmptyOnDelete: true
 
   LandingUIRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/landing-ui'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/landing-ui'
       EmptyOnDelete: true
 
   MerchantUIRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/merchant-ui'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/merchant-ui'
       EmptyOnDelete: true
 
   StorePodSaasGatewayRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${ProjectId}/store-pod/store-pod-saas-gateway'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/store-pod-saas-gateway'
       EmptyOnDelete: true
 
   # Lambda execution role for the custom resource
   GetHostedZoneFunctionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectId}-get-hosted-zone-role'
+      RoleName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-get-hosted-zone-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -165,7 +221,7 @@ Resources:
   GetHostedZoneFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${ProjectId}-get-hosted-zone'
+      FunctionName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-get-hosted-zone'
       Runtime: python3.11
       Handler: index.handler
       Role: !GetAtt GetHostedZoneFunctionRole.Arn
@@ -225,14 +281,14 @@ Resources:
           HostedZoneId: !Ref DomainZoneId
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectId}-domain-certificate'
+          Value: !Sub '${GenerateProjectIdCustomResource.ProjectId}-domain-certificate'
         - Key: Project
-          Value: !Ref ProjectId
+          Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
 
   DomainConfigParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub '/${ProjectId}/config/domain'
+      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/domain'
       Type: String
       Value: !Sub |
         {
@@ -242,7 +298,7 @@ Resources:
   StripeConfigParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub '/${ProjectId}/config/stripe'
+      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
       Type: String
       Value: !Sub |
         {
@@ -253,7 +309,7 @@ Resources:
   KeycloakConfigParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub '/${ProjectId}/config/kc'
+      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/kc'
       Type: String
       Value: !Sub |
         {
@@ -265,7 +321,7 @@ Resources:
   TerraformStateBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectId}-tf-state'
+      BucketName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-tf-state'
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
@@ -283,7 +339,7 @@ Resources:
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectId}-codebuild-role'
+      RoleName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-codebuild-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -325,7 +381,7 @@ Resources:
   TerraformDeploymentRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectId}-terraform-deployment-role'
+      RoleName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-terraform-deployment-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -500,7 +556,7 @@ Resources:
   CvhomeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${ProjectId}-cvhome-build'
+      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-build'
       Description: Build cvhome application and push Docker image to ECR
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Artifacts:
@@ -516,9 +572,9 @@ Resources:
           - Name: AWS_ACCOUNT_ID
             Value: !Ref AWS::AccountId
           - Name: PROJECT_ID
-            Value: !Ref ProjectId
+            Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
           - Name: REGISTRY
-            Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectId}'
+            Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${GenerateProjectIdCustomResource.ProjectId}'
           - Name: JAVA_OPTS
             Value: '-Xmx8g -Xms2g'
           - Name: GRADLE_OPTS
@@ -553,11 +609,10 @@ Resources:
                 # Tag and push images to ECR repositories
                 # Adjust image names based on your bootBuildImage configuration
 
-
   CvhomeInfraDeployProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${ProjectId}-cvhome-ecs-fargate-infra-deploy'
+      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-ecs-fargate-infra-deploy'
       Description: Deploy cvhome infrastructure using Terraform
       ServiceRole: !GetAtt TerraformDeploymentRole.Arn
       Artifacts:
@@ -570,7 +625,7 @@ Resources:
           - Name: AWS_REGION
             Value: !Ref AWS::Region
           - Name: PROJECT_ID
-            Value: !Ref ProjectId
+            Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
           - Name: IMAGE_TAG
             Value: "latest"
           - Name: TF_STATE_BUCKET
@@ -602,14 +657,10 @@ Resources:
               commands:
                 - echo "Terraform deployment completed on `date`"
 
-
-
-
-
   CvhomeInfraDestroyProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${ProjectId}-cvhome-ecs-fargate-infra-destroy'
+      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-ecs-fargate-infra-destroy'
       Description: Destroy cvhome infrastructure using Terraform
       ServiceRole: !GetAtt TerraformDeploymentRole.Arn
       Artifacts:
@@ -622,7 +673,7 @@ Resources:
           - Name: AWS_REGION
             Value: !Ref AWS::Region
           - Name: PROJECT_ID
-            Value: !Ref ProjectId
+            Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
           - Name: IMAGE_TAG
             Value: "latest"
           - Name: TF_STATE_BUCKET
@@ -654,25 +705,7 @@ Resources:
 
 Outputs:
   ProjectId:
-    Description: Project ID
-    Value: !Ref ProjectId
+    Description: Generated Project ID
+    Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
     Export:
       Name: !Sub '${AWS::StackName}-ProjectId'
-      
-  TerraformStateBucketName:
-    Description: S3 bucket for Terraform state
-    Value: !Ref TerraformStateBucket
-    Export:
-      Name: !Sub '${AWS::StackName}-TfStateBucket'
-
-  CvhomeBuildProject:
-    Description: CodeBuild project for cvhome application
-    Value: !Ref CvhomeBuildProject
-
-  CvhomeInfraDeployProject:
-    Description: CodeDeploy project for cvhome infrastructure
-    Value: !Ref CvhomeInfraDeployProject
-
-  CvhomeInfraDestroyProject:
-    Description: CodeDestroy project for cvhome infrastructure
-    Value: !Ref CvhomeInfraDestroyProject
