@@ -39,7 +39,9 @@ Parameters:
 
   Domain:
     Type: AWS::Route53::HostedZone::Id
-    Description: Select a Route53 hosted zone for the application
+    Description: |
+      Select a Route53 hosted zone for the application. 
+      IMPORTANT: You must have a valid ACM certificate for this domain in us-east-1 region before deploying.
 
   StripeKey:
     Type: String
