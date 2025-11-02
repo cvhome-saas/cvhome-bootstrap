@@ -26,4 +26,4 @@ jobs:
 
       - name: Verify upload
         run: |
-          echo "Template URL: https://s3.amazonaws.com/cvhome-saas/assets/bootstrap.yaml"
+          echo "Template URL: https://cvhome-saas.s3.eu-central-1.amazonaws.com/assets/bootstrap.yaml"
