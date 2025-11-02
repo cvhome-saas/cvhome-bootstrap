@@ -1,5 +1,34 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: cvhome bootstrap 
+Description: cvhome bootstrap
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Project Configuration
+        Parameters:
+          - ProjectId
+          - Domain
+      - Label:
+          default: Keycloak Configuration
+        Parameters:
+          - KeycloakAdminPassword
+      - Label:
+          default: Stripe Configuration
+        Parameters:
+          - StripeKey
+          - StripeWebhookSigningKey
+    ParameterLabels:
+      ProjectId:
+        default: Project ID
+      Domain:
+        default: Domain Name
+      KeycloakAdminPassword:
+        default: Keycloak Admin Password
+      StripeKey:
+        default: Stripe API Key
+      StripeWebhookSigningKey:
+        default: Stripe Webhook Signing Key
 
 Parameters:
   ProjectId:
@@ -8,10 +37,9 @@ Parameters:
     MinLength: 10
     MaxLength: 10
 
-  DomainName:
-    Type: String
-    Description: Domain name for the application
-    Default: ''
+  Domain:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Select a Route53 hosted zone for the application
 
   StripeKey:
     Type: String
@@ -35,66 +63,79 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/store-core-gateway'
+      EmptyOnDelete: true
 
   CoreAuthRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/core-auth'
+      EmptyOnDelete: true
 
   ManagerRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/manager'
+      EmptyOnDelete: true
 
   SubscriptionRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/subscription'
+      EmptyOnDelete: true
 
   StoreUIRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/store-ui'
+      EmptyOnDelete: true
 
   WelcomeUIRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-core/welcome-ui'
+      EmptyOnDelete: true
 
   MerchantRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/merchant'
+      EmptyOnDelete: true
 
   ContentRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/content'
+      EmptyOnDelete: true
 
   CatalogRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/catalog'
+      EmptyOnDelete: true
 
   OrderRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/order'
+      EmptyOnDelete: true
 
   LandingUIRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/landing-ui'
+      EmptyOnDelete: true
 
   MerchantUIRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/merchant-ui'
+      EmptyOnDelete: true
 
   StorePodSaasGatewayRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${ProjectId}/store-pod/store-pod-saas-gateway'
+      EmptyOnDelete: true
 
 
   DomainConfigParameter:
@@ -104,7 +145,7 @@ Resources:
       Type: String
       Value: !Sub |
         {
-          "domain": "${DomainName}"
+          "domain": "${Domain}"
         }
       Description: Domain configuration for the application
   StripeConfigParameter:
@@ -262,6 +303,8 @@ Resources:
             Value: !Ref AWS::Region
           - Name: PROJECT_ID
             Value: !Ref ProjectId
+          - Name: IMAGE_TAG
+            Value: "latest"
           - Name: TF_STATE_BUCKET
             Value: !Ref TerraformStateBucket
       Source:
@@ -284,7 +327,7 @@ Resources:
             build:
               commands:
                 - echo "Planning Terraform changes..."
-                - terraform plan -var="project_id=$PROJECT_ID" -out=tfplan
+                - terraform plan -var="project_id=$PROJECT_ID" -var="image_tag=$IMAGE_TAG" -out=tfplan
                 - echo "Applying Terraform changes..."
                 - terraform apply -auto-approve tfplan
             post_build:
@@ -301,6 +344,12 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-ProjectId'
 
+  Domain:
+    Description: Domain name for the application
+    Value: !Ref Domain
+    Export:
+      Name: !Sub '${AWS::StackName}-Domain'
+      
   TerraformStateBucketName:
     Description: S3 bucket for Terraform state
     Value: !Ref TerraformStateBucket
