@@ -8,7 +8,7 @@ Metadata:
           default: Project Configuration
         Parameters:
           - ProjectId
-          - Domain
+          - DomainZoneId
       - Label:
           default: Keycloak Configuration
         Parameters:
@@ -21,8 +21,8 @@ Metadata:
     ParameterLabels:
       ProjectId:
         default: Project ID
-      Domain:
-        default: Domain Name
+      DomainZoneId:
+        default: Domain Zone Id
       KeycloakAdminPassword:
         default: Keycloak Admin Password
       StripeKey:
@@ -37,11 +37,9 @@ Parameters:
     MinLength: 10
     MaxLength: 10
 
-  Domain:
+  DomainZoneId:
     Type: AWS::Route53::HostedZone::Id
-    Description: |
-      Select a Route53 hosted zone for the application. 
-      IMPORTANT: You must have a valid ACM certificate for this domain in us-east-1 region before deploying.
+    Description: Select a Route53 hosted zone for the application. 
 
   StripeKey:
     Type: String
@@ -147,7 +145,7 @@ Resources:
       Type: String
       Value: !Sub |
         {
-          "domain": "${Domain}"
+          "domain": "${DomainZoneId}"
         }
       Description: Domain configuration for the application
   StripeConfigParameter:
@@ -569,11 +567,11 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-ProjectId'
 
-  Domain:
+  DomainZoneId:
     Description: Domain name for the application
-    Value: !Ref Domain
+    Value: !Ref DomainZoneId
     Export:
-      Name: !Sub '${AWS::StackName}-Domain'
+      Name: !Sub '${AWS::StackName}-DomainZoneId'
       
   TerraformStateBucketName:
     Description: S3 bucket for Terraform state
