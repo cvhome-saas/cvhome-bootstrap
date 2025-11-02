@@ -1,5 +1,5 @@
 ### cvhome-bootstrap
-*. an easy way to deploy cvhome with just few clicks.
+an easy way to deploy cvhome with just few clicks.
 
 ## Quickly Deploy
 
