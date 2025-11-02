@@ -327,7 +327,7 @@ Resources:
             build:
               commands:
                 - echo "Planning Terraform changes..."
-                - terraform plan -var="project_id=$PROJECT_ID" -var="image_tag=$IMAGE_TAG" -out=tfplan
+                - terraform plan -var="project=$PROJECT_ID" -var="image_tag=$IMAGE_TAG" -out=tfplan
                 - echo "Applying Terraform changes..."
                 - terraform apply -auto-approve tfplan
             post_build:
