@@ -703,6 +703,7 @@ Resources:
               commands:
                 - echo "Terraform Destroy completed on `date`"
 
+
 Outputs:
   ProjectId:
     Description: Generated Project ID
