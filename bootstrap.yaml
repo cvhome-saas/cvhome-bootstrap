@@ -17,7 +17,7 @@ Metadata:
           default: Stripe Configuration
         Parameters:
           - StripeKey
-          - StripeWebhookSigningKey
+          - StripeWebhockSigningKey
     ParameterLabels:
       ProjectId:
         default: Project ID
@@ -27,7 +27,7 @@ Metadata:
         default: Keycloak Admin Password
       StripeKey:
         default: Stripe API Key
-      StripeWebhookSigningKey:
+      StripeWebhockSigningKey:
         default: Stripe Webhook Signing Key
 
 Parameters:
@@ -47,7 +47,7 @@ Parameters:
     NoEcho: true
     Default: ''
 
-  StripeWebhookSigningKey:
+  StripeWebhockSigningKey:
     Type: String
     Description: Stripe webhook signing key
     NoEcho: true
@@ -156,7 +156,7 @@ Resources:
       Value: !Sub |
         {
           "stripeKey": "${StripeKey}",
-          "stripeWebhookSigningKey": "${StripeWebhookSigningKey}"
+          "stripeWebhockSigningKey": "${StripeWebhockSigningKey}"
         }
       Description: Stripe configuration including API key and webhook signing key
   KeycloakConfigParameter:
