@@ -277,7 +277,8 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
-
+    DeletionPolicy: Delete
+    
   # CodeBuild Service Role
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
