@@ -418,19 +418,6 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecs:*
-                  - ecs:CreateCluster
-                  - ecs:CreateService
-                  - ecs:UpdateService
-                  - ecs:DeleteService
-                  - ecs:RegisterTaskDefinition
-                  - ecs:DeregisterTaskDefinition
-                  - ecs:DescribeClusters
-                  - ecs:DescribeServices
-                  - ecs:DescribeTaskDefinition
-                  - ecs:DescribeTasks
-                  - ecs:ListClusters
-                  - ecs:ListServices
-                  - ecs:ListTaskDefinitions
                 Resource: '*'
               
               # RDS
@@ -454,15 +441,7 @@ Resources:
               # SSM Parameter Store
               - Effect: Allow
                 Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                  - ssm:GetParametersByPath
-                  - ssm:PutParameter
-                  - ssm:DeleteParameter
-                  - ssm:AddTagsToResource
-                  - ssm:ListTagsForResource
-                  - ssm:RemoveTagsFromResource
-                  - ssm:DescribeParameters
+                  - ssm:*
                 Resource: '*'
               
               # Secrets Manager
@@ -486,30 +465,7 @@ Resources:
               # IAM (Limited to specific patterns)
               - Effect: Allow
                 Action:
-                  - iam:GetRole
-                  - iam:GetRolePolicy
-                  - iam:GetPolicy
-                  - iam:GetPolicyVersion
-                  - iam:ListRolePolicies
-                  - iam:ListAttachedRolePolicies
-                  - iam:ListPolicies
-                  - iam:ListPolicyVersions
-                  - iam:CreateRole
-                  - iam:DeleteRole
-                  - iam:UpdateRole
-                  - iam:PutRolePolicy
-                  - iam:DeleteRolePolicy
-                  - iam:AttachRolePolicy
-                  - iam:DetachRolePolicy
-                  - iam:CreatePolicy
-                  - iam:DeletePolicy
-                  - iam:CreatePolicyVersion
-                  - iam:DeletePolicyVersion
-                  - iam:PassRole
-                  - iam:TagRole
-                  - iam:UntagRole
-                  - iam:TagPolicy
-                  - iam:UntagPolicy
+                  - iam:*
                 Resource: '*'
               
               # CloudWatch
