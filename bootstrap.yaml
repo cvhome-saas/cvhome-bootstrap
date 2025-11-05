@@ -678,7 +678,7 @@ Resources:
             build:
               commands:
                 - echo "Planning Terraform changes..."
-                - terraform plan -var="project=$PROJECT_ID" -var="image_tag=$IMAGE_TAG" -out=tfplan
+                - terraform plan -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -var="project=dev" -var="image_tag=$IMAGE_TAG" -out=tfplan
                 - echo "Applying Terraform changes..."
                 - terraform apply -auto-approve tfplan
             post_build:
@@ -726,7 +726,7 @@ Resources:
             build:
               commands:
                 - echo "Destroy Terraform env..."
-                - terraform destroy  -var="project=$PROJECT_ID" -var="image_tag=$IMAGE_TAG" --auto-approve=true
+                - terraform destroy -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -var="project=dev" -var="image_tag=$IMAGE_TAG" --auto-approve=true
             post_build:
               commands:
                 - echo "Terraform Destroy completed on `date`"
