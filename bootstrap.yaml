@@ -310,16 +310,20 @@ Resources:
           "STRIPE_WEBHOOK-SIGNING-KEY": "${StripeWebhookSigningKey}"
         }
   
+
   KeycloakConfigSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub "/${GenerateProjectIdCustomResource.ProjectId}/config/kc"
       Description: Keycloak admin configuration
-      SecretString: !Sub |
-        {
-          "KEYCLOAK_ADMIN": "sys-admin@mail.com",
-          "KEYCLOAK_ADMIN_PASSWORD": "${KeycloakAdminPassword}"
-        }
+      GenerateSecretString:
+        SecretStringTemplate: |
+          {
+            "KEYCLOAK_ADMIN": "sys-admin@mail.com"
+          }
+        GenerateStringKey: "KEYCLOAK_ADMIN_PASSWORD"
+        PasswordLength: 20
+        ExcludeCharacters: "\"@/\\"
 
 
   EmptyS3BucketFunctionRole:
