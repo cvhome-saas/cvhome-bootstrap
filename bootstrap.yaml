@@ -732,6 +732,7 @@ Resources:
                 - echo "Terraform Destroy completed on `date`"
 
 
+
 Outputs:
   ProjectId:
     Description: Generated Project ID
