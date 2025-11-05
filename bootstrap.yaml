@@ -9,10 +9,6 @@ Metadata:
         Parameters:
           - DomainZoneId
       - Label:
-          default: Keycloak Configuration
-        Parameters:
-          - KeycloakAdminPassword
-      - Label:
           default: Stripe Configuration
         Parameters:
           - StripeKey
@@ -20,8 +16,6 @@ Metadata:
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
-      KeycloakAdminPassword:
-        default: Keycloak Admin Password
       StripeKey:
         default: Stripe API Key
       StripeWebhookSigningKey:
@@ -43,11 +37,6 @@ Parameters:
     Description: Stripe webhook signing key
     NoEcho: true
     Default: ''
-
-  KeycloakAdminPassword:
-    Type: String
-    Description: Keycloak admin password for Keycloak sys-admin@mail.com
-    NoEcho: true
 
 Resources:
   # Lambda execution role for generating random project ID
