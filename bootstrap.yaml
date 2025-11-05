@@ -16,7 +16,7 @@ Metadata:
           default: Stripe Configuration
         Parameters:
           - StripeKey
-          - StripeWebhockSigningKey
+          - StripeWebhookSigningKey
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
@@ -24,7 +24,7 @@ Metadata:
         default: Keycloak Admin Password
       StripeKey:
         default: Stripe API Key
-      StripeWebhockSigningKey:
+      StripeWebhookSigningKey:
         default: Stripe Webhook Signing Key
 
 Parameters:
@@ -38,7 +38,7 @@ Parameters:
     NoEcho: true
     Default: ''
 
-  StripeWebhockSigningKey:
+  StripeWebhookSigningKey:
     Type: String
     Description: Stripe webhook signing key
     NoEcho: true
@@ -285,39 +285,43 @@ Resources:
         - Key: Project
           Value: !GetAtt GenerateProjectIdCustomResource.ProjectId
 
-  DomainConfigParameter:
+  CvhomeConfigParameter:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/domain'
+      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/cvhome'
       Type: String
       Value: !Sub |
         {
-          "domain": "${GetHostedZoneCustomResource.DomainName}"
+          "hosted_zone_id": "${DomainZoneId}",
+          "env": "dev",
+          "image_tag": "latest"
         }
-      Description: Domain configuration for the application
-  StripeConfigParameter:
-    Type: AWS::SSM::Parameter
+      Description: Cvhome configuration for the application
+
+
+  StripeConfigSecret:
+    Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
-      Type: String
-      Value: !Sub |
-        {
-          "stripeKey": "${StripeKey}",
-          "stripeWebhockSigningKey": "${StripeWebhockSigningKey}"
-        }
+      Name: !Sub "/${GenerateProjectIdCustomResource.ProjectId}/config/stripe"
       Description: Stripe configuration including API key and webhook signing key
-  KeycloakConfigParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/kc'
-      Type: String
-      Value: !Sub |
+      SecretString: !Sub |
         {
-          "username": "sys-admin@mail.com",
-          "password": "${KeycloakAdminPassword}"
+          "STRIPE_KEY": "${StripeKey}",
+          "STRIPE_WEBHOOK-SIGNING-KEY": "${StripeWebhookSigningKey}"
         }
+  
+  KeycloakConfigSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "/${GenerateProjectIdCustomResource.ProjectId}/config/kc"
       Description: Keycloak admin configuration
-      # Lambda execution role for emptying S3 bucket
+      SecretString: !Sub |
+        {
+          "KEYCLOAK_ADMIN": "sys-admin@mail.com",
+          "KEYCLOAK_ADMIN_PASSWORD": "${KeycloakAdminPassword}"
+        }
+
+
   EmptyS3BucketFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -678,7 +682,7 @@ Resources:
             build:
               commands:
                 - echo "Planning Terraform changes..."
-                - terraform plan -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -var="env=dev" -var="image_tag=$IMAGE_TAG" -out=tfplan
+                - terraform plan -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -out=tfplan
                 - echo "Applying Terraform changes..."
                 - terraform apply -auto-approve tfplan
             post_build:
@@ -726,7 +730,7 @@ Resources:
             build:
               commands:
                 - echo "Destroy Terraform env..."
-                - terraform destroy -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -var="env=dev" -var="image_tag=$IMAGE_TAG" --auto-approve=true
+                - terraform destroy -var="project=$PROJECT_ID" -var="region=$AWS_REGION" --auto-approve=true
             post_build:
               commands:
                 - echo "Terraform Destroy completed on `date`"
