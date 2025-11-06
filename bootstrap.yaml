@@ -9,6 +9,12 @@ Metadata:
         Parameters:
           - DomainZoneId
       - Label:
+          default: Pod Configuration
+        Parameters:
+          - PodCount
+          - PodSize
+          - PodAutoScale
+      - Label:
           default: Stripe Configuration
         Parameters:
           - StripeKey
@@ -16,6 +22,12 @@ Metadata:
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
+      PodCount:
+        default: Pod Count
+      PodSize:
+        default: Pod Size
+      PodAutoScale:
+        default: Pod Auto Scale
       StripeKey:
         default: Stripe API Key
       StripeWebhookSigningKey:
@@ -25,6 +37,33 @@ Parameters:
   DomainZoneId:
     Type: AWS::Route53::HostedZone::Id
     Description: Select a Route53 hosted zone for the application. 
+
+  PodCount:
+    Type: Number
+    Description: Number of pods to create
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+    ConstraintDescription: Must be a number between 1 and 5
+
+  PodSize:
+    Type: String
+    Description: Size of the pod
+    Default: small
+    AllowedValues:
+      - small
+      - medium
+      - large
+      - x-large
+    ConstraintDescription: Must be one of small, medium, large, or x-large
+  PodAutoScale:
+    Type: String
+    Description: Enable or disable pod auto scaling
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    ConstraintDescription: Must be either true or false
 
   StripeKey:
     Type: String
@@ -283,7 +322,10 @@ Resources:
         {
           "hosted_zone_id": "${DomainZoneId}",
           "env": "dev",
-          "image_tag": "latest"
+          "image_tag": "latest",
+          "pod_count": "${PodCount}",
+          "pod_size": "${PodSize}",
+          "pod_auto_scale": ${PodAutoScale}
         }
       Description: Cvhome configuration for the application
 
