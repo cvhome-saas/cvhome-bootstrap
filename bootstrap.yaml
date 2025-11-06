@@ -685,6 +685,7 @@ Resources:
                 # Tag and push images to ECR repositories
                 # Adjust image names based on your bootBuildImage configuration
 
+      SourceVersion: develop
   CvhomeInfraDeployProject:
     Type: AWS::CodeBuild::Project
     Properties:
