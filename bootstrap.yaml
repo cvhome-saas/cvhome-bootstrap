@@ -14,6 +14,7 @@ Metadata:
           - PodCount
           - PodSize
           - PodAutoScale
+          - isProd
       - Label:
           default: Stripe Configuration
         Parameters:
@@ -36,8 +37,8 @@ Metadata:
 Parameters:
   DomainZoneId:
     Type: AWS::Route53::HostedZone::Id
-    Description: Select a Route53 hosted zone for the application. 
-
+    Description: Select a Route53 hosted zone for the application.
+  
   PodCount:
     Type: Number
     Description: Number of pods to create
@@ -59,6 +60,13 @@ Parameters:
   PodAutoScale:
     Type: String
     Description: Enable or disable pod auto scaling
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+  isProd:
+    Type: String
+    Description: is Dev or Production env
     Default: "false"
     AllowedValues:
       - "true"
@@ -325,7 +333,8 @@ Resources:
           "image_tag": "latest",
           "pod_count": "${PodCount}",
           "pod_size": "${PodSize}",
-          "pod_auto_scale": ${PodAutoScale}
+          "pod_auto_scale": "${PodAutoScale}",
+          "is_prod": "${isProd}"
         }
       Description: Cvhome configuration for the application
 
@@ -341,7 +350,7 @@ Resources:
           "STRIPE_WEBHOOK-SIGNING-KEY": "${StripeWebhookSigningKey}"
         }
   
-
+  
   KeycloakConfigSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -445,7 +454,7 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
     DeletionPolicy: Delete
-    
+  
   # CodeBuild Service Role
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
