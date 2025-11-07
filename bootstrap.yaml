@@ -8,6 +8,7 @@ Metadata:
           default: Project Configuration
         Parameters:
           - DomainZoneId
+          - Branch
       - Label:
           default: Pod Configuration
         Parameters:
@@ -23,6 +24,8 @@ Metadata:
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
+      Branch:
+        default: Branch
       PodCount:
         default: Pod Count
       PodSize:
@@ -72,6 +75,11 @@ Parameters:
       - "true"
       - "false"
     ConstraintDescription: Must be either true or false
+
+  Branch:
+    Type: String
+    Description: Branch name
+    Default: 'develop'
 
   StripeKey:
     Type: String
@@ -685,7 +693,7 @@ Resources:
                 # Tag and push images to ECR repositories
                 # Adjust image names based on your bootBuildImage configuration
 
-      SourceVersion: develop
+      SourceVersion: !Ref Branch
   CvhomeInfraDeployProject:
     Type: AWS::CodeBuild::Project
     Properties:
