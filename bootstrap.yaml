@@ -660,9 +660,15 @@ Resources:
           - Name: REGISTRY
             Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${GenerateProjectIdCustomResource.ProjectId}'
           - Name: JAVA_OPTS
-            Value: '-Xmx8g -Xms2g'
+            Value: '-Xmx10g -Xms2g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC'
           - Name: GRADLE_OPTS
-            Value: '-Dorg.gradle.jvmargs="-Xmx8g -Xms2g -XX:MaxMetaspaceSize=1g"'
+            Value: >
+              -Dorg.gradle.jvmargs="-Xmx10g -Xms2g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC"
+              -Dorg.gradle.daemon=false
+              -Dorg.gradle.parallel=true
+              -Dorg.gradle.configureondemand=true
+              -Dorg.gradle.caching=true
+              -Dorg.gradle.vfs.watch=true
       Source:
         Type: GITHUB
         Location: https://github.com/cvhome-saas/cvhome.git
@@ -685,7 +691,7 @@ Resources:
               commands:
                 - echo "Building application with Gradle..."
                 - chmod +x gradlew
-                - ./gradlew clean build bootBuildImage --publishImage -x test -x check --no-daemon
+                - ./gradlew clean build bootBuildImage --publishImage -x test -x check --no-daemon --parallel --build-cache --configure-on-demand
             post_build:
               commands:
                 - echo "Build completed on `date`"
