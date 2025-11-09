@@ -697,7 +697,7 @@ Resources:
   CvhomeInfraDeployProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-ecs-fargate-infra-deploy'
+      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-infra-deploy'
       Description: Deploy cvhome infrastructure using Terraform
       ServiceRole: !GetAtt TerraformDeploymentRole.Arn
       Artifacts:
@@ -745,7 +745,7 @@ Resources:
   CvhomeInfraDestroyProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-ecs-fargate-infra-destroy'
+      Name: !Sub '${GenerateProjectIdCustomResource.ProjectId}-cvhome-infra-destroy'
       Description: Destroy cvhome infrastructure using Terraform
       ServiceRole: !GetAtt TerraformDeploymentRole.Arn
       Artifacts:
