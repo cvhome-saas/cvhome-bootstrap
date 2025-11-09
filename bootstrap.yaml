@@ -765,7 +765,7 @@ Resources:
             Value: !Ref TerraformStateBucket
       Source:
         Type: GITHUB
-        Location: https://github.com/cvhome-saas/cvhome-ecs-fargate-infra.git
+        Location: https://github.com/cvhome-saas/cvhome-infra.git
         BuildSpec: |
           version: 0.2
           phases:
