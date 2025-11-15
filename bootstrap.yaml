@@ -17,6 +17,7 @@ Metadata:
           - PodAutoScale
           - isProd
           - isMonitoring
+          - allowTestStores
       - Label:
           default: Stripe Configuration
         Parameters:
@@ -79,6 +80,14 @@ Parameters:
   isMonitoring:
     Type: String
     Description: is monitoring enabled
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    ConstraintDescription: Must be either true or false
+  allowTestStores:
+    Type: String
+    Description: allow test stores
     Default: "false"
     AllowedValues:
       - "true"
@@ -352,7 +361,8 @@ Resources:
           "pod_size": "${PodSize}",
           "pod_auto_scale": "${PodAutoScale}",
           "is_prod": "${isProd}",
-          "is_monitoring": "${isMonitoring}"
+          "is_monitoring": "${isMonitoring}",
+          "allow_test_stores": "${allowTestStores}"
         }
       Description: Cvhome configuration for the application
 
