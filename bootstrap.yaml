@@ -189,16 +189,10 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/core-auth'
       EmptyOnDelete: true
 
-  ManagerRepository:
+  ControlPlaneRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/manager'
-      EmptyOnDelete: true
-
-  SubscriptionRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/subscription'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/control-plane'
       EmptyOnDelete: true
 
   StoreUIRepository:
