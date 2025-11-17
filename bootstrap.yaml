@@ -243,12 +243,6 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/landing-ui'
       EmptyOnDelete: true
 
-  MerchantUIRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/merchant-ui'
-      EmptyOnDelete: true
-
   StorePodSaasGatewayRepository:
     Type: AWS::ECR::Repository
     Properties:
