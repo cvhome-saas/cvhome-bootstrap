@@ -207,6 +207,12 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/welcome-ui'
       EmptyOnDelete: true
 
+  SellerUIRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/seller-ui'
+      EmptyOnDelete: true
+
   MerchantRepository:
     Type: AWS::ECR::Repository
     Properties:
