@@ -195,18 +195,6 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/control-plane'
       EmptyOnDelete: true
 
-  StoreUIRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/store-ui'
-      EmptyOnDelete: true
-
-  WelcomeUIRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/welcome-ui'
-      EmptyOnDelete: true
-
   SellerUIRepository:
     Type: AWS::ECR::Repository
     Properties:
