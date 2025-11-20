@@ -105,9 +105,6 @@ Parameters:
 Conditions:
   HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
 
-Conditions:
-  HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
-
 Resources:
   # Lambda execution role for generating random project ID
   GenerateProjectIdFunctionRole:
