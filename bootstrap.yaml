@@ -390,11 +390,10 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:PutParameter
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                  - ssm:DeleteParameter
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:UpdateSecret
+                Resource: !Ref StripeConfigSecret
 
   # Lambda to ensure Stripe webhook and store signing key in SSM
   StripeWebhookInitFunction:
@@ -410,7 +409,7 @@ Resources:
         Variables:
           STRIPE_KEY: !Ref StripeKey
           DOMAIN_NAME: !GetAtt GetHostedZoneCustomResource.DomainName
-          SSM_PARAM_NAME: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
+          SECRET_NAME: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
       Code:
         ZipFile: |
           import json
@@ -471,25 +470,16 @@ Resources:
                                      idempotency_key=f'create-wh-{url}')
             return { 'id': created['id'], 'secret': created.get('secret') }
 
-          def put_ssm_secure_json(name, payload):
-            ssm = boto3.client('ssm')
+          def update_secret(name, payload):
+            sm = boto3.client('secretsmanager')
             try:
-              ssm.put_parameter(
-                Name=name,
-                Value=json.dumps(payload),
-                Type='SecureString',
-                Overwrite=True
+              sm.put_secret_value(
+                SecretId=name,
+                SecretString=json.dumps(payload)
               )
             except Exception as e:
-              if 'ParameterAlreadyExists' in str(e):
-                ssm.delete_parameter(Name=name)
-                ssm.put_parameter(
-                  Name=name,
-                  Value=json.dumps(payload),
-                  Type='SecureString'
-                )
-              else:
-                raise
+              print(f"Error updating secret: {e}")
+              raise
 
           def handler(event, context):
             print('Event:', json.dumps(event))
@@ -513,21 +503,26 @@ Resources:
                 'STRIPE_KEY': api_key,
                 'WEBHOOK_ENDPOINT_ID': wh_id
               }
+              
+              sm = boto3.client('secretsmanager')
+              secret_name = os.environ['SECRET_NAME']
+
               if wh_secret:
                 payload['STRIPE_WEBHOOK_SIGNING_KEY'] = wh_secret
               else:
-                ssm = boto3.client('ssm')
                 try:
-                  current = ssm.get_parameter(Name=os.environ['SSM_PARAM_NAME'], WithDecryption=True)
-                  curv = json.loads(current['Parameter']['Value'])
-                  if 'STRIPE_WEBHOOK_SIGNING_KEY' in curv:
-                    payload['STRIPE_WEBHOOK_SIGNING_KEY'] = curv['STRIPE_WEBHOOK_SIGNING_KEY']
-                except ssm.exceptions.ParameterNotFound:
+                  current = sm.get_secret_value(SecretId=secret_name)
+                  if 'SecretString' in current:
+                    curv = json.loads(current['SecretString'])
+                    if 'STRIPE_WEBHOOK_SIGNING_KEY' in curv:
+                      payload['STRIPE_WEBHOOK_SIGNING_KEY'] = curv['STRIPE_WEBHOOK_SIGNING_KEY']
+                except Exception as e:
+                  print(f"Warning reading existing secret: {e}")
                   pass
 
-              put_ssm_secure_json(os.environ['SSM_PARAM_NAME'], payload)
+              update_secret(secret_name, payload)
 
-              data = { 'webhook_endpoint_id': wh_id, 'saved_to': os.environ['SSM_PARAM_NAME'] }
+              data = { 'webhook_endpoint_id': wh_id, 'saved_to': secret_name }
               send_response(event, context, SUCCESS, data, physical_id='StripeWebhookInit')
             except Exception as e:
               print('Error:', str(e))
