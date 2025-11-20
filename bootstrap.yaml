@@ -105,6 +105,9 @@ Parameters:
 Conditions:
   HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
 
+Conditions:
+  HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
+
 Resources:
   # Lambda execution role for generating random project ID
   GenerateProjectIdFunctionRole:
@@ -353,6 +356,176 @@ Resources:
           "STRIPE_KEY": "${StripeKey}"
         }
   
+  # Stripe init custom resource
+  StripeInitFunctionRole:
+    Condition: HasStripeKey
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-stripe-init-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ReadStripeSecret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref StripeConfigSecret
+
+  StripeInitFunction:
+    Condition: HasStripeKey
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-stripe-init'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt StripeInitFunctionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          STRIPE_SECRET_NAME: !Ref StripeConfigSecret
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          import boto3
+          import base64
+
+          SUCCESS = 'SUCCESS'
+          FAILED = 'FAILED'
+          def send_response(event, context, status, data, physical_id=None, reason=None):
+            response_body = {
+              'Status': status,
+              'Reason': reason or f'See the details in CloudWatch Log Stream: {context.log_stream_name}',
+              'PhysicalResourceId': physical_id or context.log_stream_name,
+              'StackId': event['StackId'],
+              'RequestId': event['RequestId'],
+              'LogicalResourceId': event['LogicalResourceId'],
+              'Data': data or {}
+            }
+            try:
+              req = urllib.request.Request(event['ResponseURL'],
+                                           data=json.dumps(response_body).encode('utf-8'),
+                                           headers={'content-type': ''})
+              req.get_method = lambda: 'PUT'
+              urllib.request.urlopen(req)
+            except Exception as e:
+              print('send_response failed:', e)
+
+          def stripe_request(method, path, api_key, form=None, query=None, idempotency_key=None):
+            base = 'https://api.stripe.com/v1'
+            url = base + path
+            if query:
+              qs = urllib.parse.urlencode(query)
+              url += ('?' + qs)
+            data = None
+            headers = {
+              'Authorization': f'Bearer {api_key}',
+            }
+            if idempotency_key:
+              headers['Idempotency-Key'] = idempotency_key
+            if form is not None:
+              headers['Content-Type'] = 'application/x-www-form-urlencoded'
+              data = urllib.parse.urlencode(form).encode('utf-8')
+            req = urllib.request.Request(url, data=data, headers=headers)
+            req.get_method = lambda: method.upper()
+            with urllib.request.urlopen(req) as resp:
+              return json.loads(resp.read().decode('utf-8'))
+
+          def get_secret_value(secret_id):
+            sm = boto3.client('secretsmanager')
+            sec = sm.get_secret_value(SecretId=secret_id)
+            if 'SecretString' in sec:
+              return json.loads(sec['SecretString'])
+            else:
+              return json.loads(base64.b64decode(sec['SecretBinary']))
+
+          def ensure_product(api_key, name, description):
+            prods = stripe_request('GET', '/products', api_key, query={'active': 'true', 'limit': 100})
+            for p in prods.get('data', []):
+              if p.get('name') == name:
+                return p
+            return stripe_request('POST', '/products', api_key,
+                                  form={'name': name, 'description': description})
+
+          def ensure_price(api_key, product_id, currency, unit_amount, nickname, interval):
+            prices = stripe_request('GET', '/prices', api_key, query={'product': product_id, 'limit': 100})
+            for pr in prices.get('data', []):
+              rec = pr.get('recurring') or {}
+              if (pr.get('currency') == currency
+                  and int(pr.get('unit_amount', 0)) == int(unit_amount)
+                  and rec.get('interval') == interval):
+                return pr
+            return stripe_request('POST', '/prices', api_key,
+                                  form={
+                                    'product': product_id,
+                                    'currency': currency,
+                                    'unit_amount': str(int(unit_amount)),
+                                    'nickname': nickname,
+                                    'recurring[interval]': interval,
+                                  },
+                                  idempotency_key=f'{product_id}-{currency}-{unit_amount}-{interval}')
+
+          def handler(event, context):
+            print('Event:', json.dumps(event))
+            try:
+              if event['RequestType'] == 'Delete':
+                send_response(event, context, SUCCESS, {}, physical_id='StripeInit')
+                return
+
+              secret_name = os.environ['STRIPE_SECRET_NAME']
+              secret = get_secret_value(secret_name)
+              api_key = secret.get('STRIPE_KEY')
+              if not api_key:
+                raise Exception('STRIPE_KEY not found in secret')
+
+              plans = [
+                {'name': 'LIMITED', 'cost': 500},
+                {'name': 'BASIC', 'cost': 1000},
+                {'name': 'PERFORMANCE', 'cost': 3000},
+              ]
+              currency = 'usd'
+
+              def monthly_cents(cost_dollars):
+                return int(cost_dollars) * 100
+
+              def yearly_cents(cost_dollars):
+                return monthly_cents(cost_dollars) * 10
+
+              created = []
+              for plan in plans:
+                prod = ensure_product(api_key, plan['name'], f"{plan['name']} Plan")
+                pid = prod['id']
+
+                p1 = ensure_price(api_key, pid, currency, monthly_cents(plan['cost']),
+                                  f"{plan['name']} MONTH", 'month')
+                p2 = ensure_price(api_key, pid, currency, yearly_cents(plan['cost']),
+                                  f"{plan['name']} YEAR", 'year')
+
+                created.append({'product': pid, 'prices': [p1['id'], p2['id']]})
+
+              send_response(event, context, SUCCESS, {'created': created}, physical_id='StripeInit')
+            except Exception as e:
+              print('Error:', str(e))
+              send_response(event, context, FAILED, {}, physical_id='StripeInit', reason=str(e))
+
+  InitStripeCustomResource:
+    Condition: HasStripeKey
+    Type: Custom::InitStripe
+    Properties:
+      ServiceToken: !GetAtt StripeInitFunction.Arn
+
   
   KeycloakConfigSecret:
     Type: AWS::SecretsManager::Secret
