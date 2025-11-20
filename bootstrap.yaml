@@ -508,14 +508,14 @@ Resources:
               secret_name = os.environ['SECRET_NAME']
 
               if wh_secret:
-                payload['STRIPE_WEBHOOK_SIGNING_KEY'] = wh_secret
+                payload['STRIPE_WEBHOOK-SIGNING-KEY'] = wh_secret
               else:
                 try:
                   current = sm.get_secret_value(SecretId=secret_name)
                   if 'SecretString' in current:
                     curv = json.loads(current['SecretString'])
-                    if 'STRIPE_WEBHOOK_SIGNING_KEY' in curv:
-                      payload['STRIPE_WEBHOOK_SIGNING_KEY'] = curv['STRIPE_WEBHOOK_SIGNING_KEY']
+                    if 'STRIPE_WEBHOOK-SIGNING-KEY' in curv:
+                      payload['STRIPE_WEBHOOK-SIGNING-KEY'] = curv['STRIPE_WEBHOOK-SIGNING-KEY']
                 except Exception as e:
                   print(f"Warning reading existing secret: {e}")
                   pass
