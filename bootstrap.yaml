@@ -510,12 +510,25 @@ Resources:
                 p2 = ensure_price(api_key, pid, currency, yearly_cents(plan['cost']),
                                   f"{plan['name']} YEAR", 'year')
 
-                created.append({'product': pid, 'prices': [p1['id'], p2['id']]})
+                created.append({'product': pid, 'plan': plan['name'], 'prices': [p1['id'], p2['id']]})
 
-              send_response(event, context, SUCCESS, {'created': created}, physical_id='StripeInit')
+              response_data = {
+                'created': created, 
+                'created_json': json.dumps(created)
+              }
+              send_response(event, context, SUCCESS, response_data, physical_id='StripeInit')
             except Exception as e:
               print('Error:', str(e))
               send_response(event, context, FAILED, {}, physical_id='StripeInit', reason=str(e))
+
+  StripePlansParameter:
+    Condition: HasStripeKey
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe-plans'
+      Type: String
+      Value: !GetAtt InitStripeCustomResource.created_json
+      Description: Stripe plans created by init function
 
   InitStripeCustomResource:
     Condition: HasStripeKey
