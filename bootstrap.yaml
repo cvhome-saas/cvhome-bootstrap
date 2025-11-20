@@ -22,7 +22,6 @@ Metadata:
           default: Stripe Configuration
         Parameters:
           - StripeKey
-          - StripeWebhookSigningKey
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
@@ -36,8 +35,6 @@ Metadata:
         default: Pod Auto Scale
       StripeKey:
         default: Stripe API Key
-      StripeWebhookSigningKey:
-        default: Stripe Webhook Signing Key
 
 Parameters:
   DomainZoneId:
@@ -105,11 +102,8 @@ Parameters:
     NoEcho: true
     Default: ''
 
-  StripeWebhookSigningKey:
-    Type: String
-    Description: Stripe webhook signing key
-    NoEcho: true
-    Default: ''
+Conditions:
+  HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
 
 Resources:
   # Lambda execution role for generating random project ID
@@ -353,11 +347,10 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub "/${GenerateProjectIdCustomResource.ProjectId}/config/stripe"
-      Description: Stripe configuration including API key and webhook signing key
+      Description: Stripe configuration including API key
       SecretString: !Sub |
         {
-          "STRIPE_KEY": "${StripeKey}",
-          "STRIPE_WEBHOOK-SIGNING-KEY": "${StripeWebhookSigningKey}"
+          "STRIPE_KEY": "${StripeKey}"
         }
   
   
@@ -374,6 +367,173 @@ Resources:
         GenerateStringKey: "KEYCLOAK_ADMIN_PASSWORD"
         PasswordLength: 20
         ExcludeCharacters: "\"@/\\"
+
+  # Role for Stripe webhook init Lambda (writes to SSM only)
+  StripeWebhookInitFunctionRole:
+    Condition: HasStripeKey
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-stripe-webhook-init-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: StripeWebhookInitPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:UpdateSecret
+                Resource: !Ref StripeConfigSecret
+
+  # Lambda to ensure Stripe webhook and store signing key in SSM
+  StripeWebhookInitFunction:
+    Condition: HasStripeKey
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-stripe-webhook-init'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt StripeWebhookInitFunctionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          STRIPE_KEY: !Ref StripeKey
+          DOMAIN_NAME: !GetAtt GetHostedZoneCustomResource.DomainName
+          SECRET_NAME: !Sub '/${GenerateProjectIdCustomResource.ProjectId}/config/stripe'
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+          import boto3
+
+          SUCCESS = 'SUCCESS'
+          FAILED = 'FAILED'
+
+          def send_response(event, context, status, data, physical_id=None, reason=None):
+            body = {
+              'Status': status,
+              'Reason': reason or f'See CloudWatch Log Stream: {context.log_stream_name}',
+              'PhysicalResourceId': physical_id or context.log_stream_name,
+              'StackId': event['StackId'],
+              'RequestId': event['RequestId'],
+              'LogicalResourceId': event['LogicalResourceId'],
+              'Data': data or {}
+            }
+            try:
+              req = urllib.request.Request(event['ResponseURL'],
+                                           data=json.dumps(body).encode('utf-8'),
+                                           headers={'content-type': ''})
+              req.get_method = lambda: 'PUT'
+              urllib.request.urlopen(req)
+            except Exception as e:
+              print('send_response failed:', e)
+
+          def stripe_request(method, path, api_key, form=None, query=None, idempotency_key=None):
+            base = 'https://api.stripe.com/v1'
+            url = base + path
+            if query:
+              url += '?' + urllib.parse.urlencode(query)
+            headers = { 'Authorization': f'Bearer {api_key}' }
+            if idempotency_key:
+              headers['Idempotency-Key'] = idempotency_key
+            data = None
+            if form is not None:
+              headers['Content-Type'] = 'application/x-www-form-urlencoded'
+              data = urllib.parse.urlencode(form, doseq=True).encode('utf-8')
+            req = urllib.request.Request(url, data=data, headers=headers)
+            req.get_method = lambda: method.upper()
+            with urllib.request.urlopen(req) as resp:
+              return json.loads(resp.read().decode('utf-8'))
+
+          def ensure_webhook(api_key, url):
+            endpoints = stripe_request('GET', '/webhook_endpoints', api_key, query={'limit': 100})
+            for ep in endpoints.get('data', []):
+              if ep.get('url') == url:
+                return { 'id': ep['id'], 'secret': None }
+            form = {
+              'url': url,
+              'enabled_events[]': '*',
+            }
+            created = stripe_request('POST', '/webhook_endpoints', api_key, form=form,
+                                     idempotency_key=f'create-wh-{url}')
+            return { 'id': created['id'], 'secret': created.get('secret') }
+
+          def update_secret(name, payload):
+            sm = boto3.client('secretsmanager')
+            try:
+              sm.put_secret_value(
+                SecretId=name,
+                SecretString=json.dumps(payload)
+              )
+            except Exception as e:
+              print(f"Error updating secret: {e}")
+              raise
+
+          def handler(event, context):
+            print('Event:', json.dumps(event))
+            try:
+              if event['RequestType'] == 'Delete':
+                send_response(event, context, SUCCESS, {}, physical_id='StripeWebhookInit')
+                return
+
+              api_key = os.environ.get('STRIPE_KEY')
+              if not api_key:
+                raise Exception('STRIPE_KEY is required')
+
+              domain = os.environ['DOMAIN_NAME']
+              url = f"https://{domain}/subscription/api/v1/stripe-webhook/public/events"
+
+              ensured = ensure_webhook(api_key, url)
+              wh_id = ensured['id']
+              wh_secret = ensured['secret']
+
+              payload = {
+                'STRIPE_KEY': api_key,
+                'WEBHOOK_ENDPOINT_ID': wh_id
+              }
+              
+              sm = boto3.client('secretsmanager')
+              secret_name = os.environ['SECRET_NAME']
+
+              if wh_secret:
+                payload['STRIPE_WEBHOOK_SIGNING_KEY'] = wh_secret
+              else:
+                try:
+                  current = sm.get_secret_value(SecretId=secret_name)
+                  if 'SecretString' in current:
+                    curv = json.loads(current['SecretString'])
+                    if 'STRIPE_WEBHOOK_SIGNING_KEY' in curv:
+                      payload['STRIPE_WEBHOOK_SIGNING_KEY'] = curv['STRIPE_WEBHOOK_SIGNING_KEY']
+                except Exception as e:
+                  print(f"Warning reading existing secret: {e}")
+                  pass
+
+              update_secret(secret_name, payload)
+
+              data = { 'webhook_endpoint_id': wh_id, 'saved_to': secret_name }
+              send_response(event, context, SUCCESS, data, physical_id='StripeWebhookInit')
+            except Exception as e:
+              print('Error:', str(e))
+              send_response(event, context, FAILED, {}, physical_id='StripeWebhookInit', reason=str(e))
+
+  # Custom resource to run webhook initialization
+  InitStripeWebhookCustomResource:
+    Condition: HasStripeKey
+    Type: Custom::InitStripeWebhook
+    Properties:
+      ServiceToken: !GetAtt StripeWebhookInitFunction.Arn
 
 
   EmptyS3BucketFunctionRole:
