@@ -357,7 +357,8 @@ Resources:
       Description: Stripe configuration including API key
       SecretString: !Sub |
         {
-          "STRIPE_KEY": "${StripeKey}"
+          "STRIPE_KEY": "${StripeKey}",
+          "STRIPE_WEBHOOK-SIGNING-KEY": ""
         }
   
   # Stripe init custom resource
