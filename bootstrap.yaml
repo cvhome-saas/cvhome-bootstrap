@@ -50,8 +50,8 @@ Parameters:
   PodCount:
     Type: Number
     Description: Number of pods to create
-    Default: 1
-    MinValue: 1
+    Default: 0
+    MinValue: 0
     MaxValue: 5
     ConstraintDescription: Must be a number between 1 and 5
 
