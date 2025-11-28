@@ -214,12 +214,6 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/merchant'
       EmptyOnDelete: true
 
-  ContentRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/content'
-      EmptyOnDelete: true
-
   CatalogRepository:
     Type: AWS::ECR::Repository
     Properties:
