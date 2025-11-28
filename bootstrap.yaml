@@ -8,6 +8,10 @@ Metadata:
           default: Project Configuration
         Parameters:
           - DomainZoneId
+      - Label:
+          default: Build Configuration
+        Parameters:
+          - GithubAccount
           - Branch
       - Label:
           default: Pod Configuration
@@ -25,6 +29,8 @@ Metadata:
     ParameterLabels:
       DomainZoneId:
         default: Domain Zone Id
+      GithubAccount:
+        default: Github Account
       Branch:
         default: Branch
       PodCount:
@@ -91,6 +97,13 @@ Parameters:
       - "false"
     ConstraintDescription: Must be either true or false
 
+  GithubAccount:
+    Type: String
+    Description: GitHub account for cvhome deployments
+    Default: cvhome-saas
+    AllowedPattern: "^[a-zA-Z0-9_-]+$"
+    ConstraintDescription: Must be a valid GitHub account.
+
   Branch:
     Type: String
     Description: Branch name
@@ -103,7 +116,7 @@ Parameters:
     Default: ''
 
 Conditions:
-  HasStripeKey: !Not [!Equals [!Ref StripeKey, '']]
+  HasStripeKey: !Not [ !Equals [ !Ref StripeKey, '' ] ]
 
 Resources:
   # Lambda execution role for generating random project ID
@@ -545,7 +558,7 @@ Resources:
     Type: Custom::InitStripe
     Properties:
       ServiceToken: !GetAtt StripeInitFunction.Arn
-
+  
   
   KeycloakConfigSecret:
     Type: AWS::SecretsManager::Secret
@@ -696,7 +709,7 @@ Resources:
                 'STRIPE_KEY': api_key,
                 'WEBHOOK_ENDPOINT_ID': wh_id
               }
-              
+          
               sm = boto3.client('secretsmanager')
               secret_name = os.environ['SECRET_NAME']
 
@@ -1078,7 +1091,7 @@ Resources:
             Value: !Ref TerraformStateBucket
       Source:
         Type: GITHUB
-        Location: https://github.com/cvhome-saas/cvhome-infra.git
+        Location: !Sub 'https://github.com/${GithubAccount}/cvhome-infra.git'
         BuildSpec: |
           version: 0.2
           phases:
@@ -1126,7 +1139,7 @@ Resources:
             Value: !Ref TerraformStateBucket
       Source:
         Type: GITHUB
-        Location: https://github.com/cvhome-saas/cvhome-infra.git
+        Location: !Sub 'https://github.com/${GithubAccount}/cvhome.git'
         BuildSpec: |
           version: 0.2
           phases:
