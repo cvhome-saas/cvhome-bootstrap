@@ -1151,7 +1151,7 @@ Resources:
             build:
               commands:
                 - echo "Destroy Terraform env..."
-                - terraform destroy -var="project=$PROJECT_ID" -var="region=$AWS_REGION" --auto-approve=true
+                - terraform destroy -var="project=$PROJECT_ID" -var="region=$AWS_REGION" -auto-approve
             post_build:
               commands:
                 - echo "Terraform Destroy completed on `date`"
