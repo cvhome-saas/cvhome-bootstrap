@@ -1133,7 +1133,7 @@ Resources:
             Value: !Ref TerraformStateBucket
       Source:
         Type: GITHUB
-        Location: !Sub 'https://github.com/${GithubAccount}/cvhome.git'
+        Location: !Sub 'https://github.com/${GithubAccount}/cvhome-infra.git'
         BuildSpec: |
           version: 0.2
           phases:
