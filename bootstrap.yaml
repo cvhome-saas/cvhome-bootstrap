@@ -220,10 +220,10 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/catalog'
       EmptyOnDelete: true
 
-  OrderRepository:
+  checkoutRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/order'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/checkout'
       EmptyOnDelete: true
 
   LandingUIRepository:
