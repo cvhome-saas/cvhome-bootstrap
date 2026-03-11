@@ -190,10 +190,10 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/store-core-gateway'
       EmptyOnDelete: true
 
-  CoreAuthRepository:
+  UaaRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/core-auth'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-core/uaa'
       EmptyOnDelete: true
 
   ControlPlaneRepository:
