@@ -107,7 +107,7 @@ Parameters:
   Branch:
     Type: String
     Description: Branch name
-    Default: 'develop'
+    Default: 'main'
 
   StripeKey:
     Type: String
@@ -1110,6 +1110,7 @@ Resources:
               commands:
                 - echo "Terraform deployment completed on `date`"
 
+      SourceVersion: !Ref Branch
   CvhomeInfraDestroyProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -1156,6 +1157,7 @@ Resources:
               commands:
                 - echo "Terraform Destroy completed on `date`"
 
+      SourceVersion: !Ref Branch
 Outputs:
   ProjectId:
     Description: Generated Project ID
