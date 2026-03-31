@@ -220,10 +220,16 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/catalog'
       EmptyOnDelete: true
 
-  checkoutRepository:
+  CheckoutRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/checkout'
+      EmptyOnDelete: true
+
+  CuaRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/cua'
       EmptyOnDelete: true
 
   LandingUIRepository:
@@ -232,10 +238,10 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/landing-ui'
       EmptyOnDelete: true
 
-  StorePodSaasGatewayRepository:
+  SpgRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/store-pod-saas-gateway'
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/spg'
       EmptyOnDelete: true
 
   # Lambda execution role for the custom resource
