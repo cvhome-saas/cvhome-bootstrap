@@ -333,16 +333,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: SSMReadWritePolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:PutParameter
-                Resource: '*'
 
   # Lambda function to generate BSON-style pod IDs
   GeneratePodIdsFunction:
@@ -358,9 +348,6 @@ Resources:
           import cfnresponse
           import json
           import secrets
-          import boto3
-          
-          ssm = boto3.client('ssm')
           
           def generate_bson_id():
               """Generate a BSON-like ID: 24-character hex string (12 bytes)"""
@@ -372,52 +359,48 @@ Resources:
                   
                   project_id = event['ResourceProperties'].get('ProjectId')
                   pod_count = int(event['ResourceProperties'].get('PodCount', 0))
-                  ssm_param_name = f"/{project_id}/config/cvhome"
                   
                   # Handle Delete
                   if event['RequestType'] == 'Delete':
-                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, project_id)
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, event['PhysicalResourceId'])
                       return
                   
-                  # Read existing SSM parameter
-                  try:
-                      response = ssm.get_parameter(Name=ssm_param_name)
-                      param_value = json.loads(response['Parameter']['Value'])
-                      existing_ids = param_value.get('pod_ids', [])
-                  except ssm.exceptions.ParameterNotFound:
-                      param_value = {}
-                      existing_ids = []
+                  # Handle Create/Update: we will store the current Pod IDs in the PhysicalResourceId
+                  # PhysicalResourceId format: project_id:id1,id2,id3...
                   
-                  # Calculate ID list changes
+                  existing_ids = []
+                  if event['RequestType'] == 'Update':
+                      physical_id = event['PhysicalResourceId']
+                      if ':' in physical_id:
+                          existing_ids_str = physical_id.split(':', 1)[1]
+                          existing_ids = existing_ids_str.split(',') if existing_ids_str else []
+                  
                   current_count = len(existing_ids)
                   
                   if pod_count > current_count:
-                      # Add new IDs
+                      # Append new IDs
                       new_ids = [generate_bson_id() for _ in range(pod_count - current_count)]
                       pod_ids = existing_ids + new_ids
                   elif pod_count < current_count:
-                      # Remove from end
+                      # Delete last value(s)
                       pod_ids = existing_ids[:pod_count]
                   else:
-                      # Keep existing
+                      # Do nothing
                       pod_ids = existing_ids
                   
-                  # Update SSM parameter
-                  param_value['pod_ids'] = pod_ids
-                  ssm.put_parameter(
-                      Name=ssm_param_name,
-                      Value=json.dumps(param_value),
-                      Type='String',
-                      Overwrite=True
-                  )
+                  # On Create, we might have no existing_ids
+                  if event['RequestType'] == 'Create' and not pod_ids:
+                      pod_ids = [generate_bson_id() for _ in range(pod_count)]
+
+                  new_physical_id = f"{project_id}:{','.join(pod_ids)}"
                   
                   response_data = {
                       'PodIds': pod_ids,
                       'PodIdsJson': json.dumps(pod_ids)
                   }
                   
-                  print(f"Generated/Updated Pod IDs: {pod_ids}")
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, project_id)
+                  print(f"Pod IDs: {pod_ids}")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, new_physical_id)
                   
               except Exception as e:
                   print(f"Error: {str(e)}")
@@ -467,12 +450,14 @@ Resources:
               "is_prod": "${isProd}",
               "is_monitoring": "${isMonitoring}",
               "allow_test_stores": "${allowTestStores}",
+              "pod_ids": ${PodIdsJson},
               "price_planes": ${PricePlanes}
             }
           - PricePlanes: !If
               - HasStripeKey
               - !GetAtt InitStripeCustomResource.created_json
               - "[]"
+            PodIdsJson: !GetAtt GeneratePodIdsCustomResource.PodIdsJson
       Description: Cvhome configuration for the application
 
 
