@@ -319,6 +319,119 @@ Resources:
       ServiceToken: !GetAtt GetHostedZoneFunction.Arn
       HostedZoneId: !Ref DomainZoneId
 
+  
+  # Lambda execution role for generating pod IDs
+  GeneratePodIdsFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SSMReadWritePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                Resource: '*'
+
+  # Lambda function to generate BSON-style pod IDs
+  GeneratePodIdsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-generate-pod-ids'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt GeneratePodIdsFunctionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import json
+          import secrets
+          import boto3
+          
+          ssm = boto3.client('ssm')
+          
+          def generate_bson_id():
+              """Generate a BSON-like ID: 24-character hex string (12 bytes)"""
+              return secrets.token_hex(12)
+          
+          def handler(event, context):
+              try:
+                  print(f"Event: {json.dumps(event)}")
+                  
+                  project_id = event['ResourceProperties'].get('ProjectId')
+                  pod_count = int(event['ResourceProperties'].get('PodCount', 0))
+                  ssm_param_name = f"/{project_id}/config/cvhome"
+                  
+                  # Handle Delete
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, project_id)
+                      return
+                  
+                  # Read existing SSM parameter
+                  try:
+                      response = ssm.get_parameter(Name=ssm_param_name)
+                      param_value = json.loads(response['Parameter']['Value'])
+                      existing_ids = param_value.get('pod_ids', [])
+                  except ssm.exceptions.ParameterNotFound:
+                      param_value = {}
+                      existing_ids = []
+                  
+                  # Calculate ID list changes
+                  current_count = len(existing_ids)
+                  
+                  if pod_count > current_count:
+                      # Add new IDs
+                      new_ids = [generate_bson_id() for _ in range(pod_count - current_count)]
+                      pod_ids = existing_ids + new_ids
+                  elif pod_count < current_count:
+                      # Remove from end
+                      pod_ids = existing_ids[:pod_count]
+                  else:
+                      # Keep existing
+                      pod_ids = existing_ids
+                  
+                  # Update SSM parameter
+                  param_value['pod_ids'] = pod_ids
+                  ssm.put_parameter(
+                      Name=ssm_param_name,
+                      Value=json.dumps(param_value),
+                      Type='String',
+                      Overwrite=True
+                  )
+                  
+                  response_data = {
+                      'PodIds': pod_ids,
+                      'PodIdsJson': json.dumps(pod_ids)
+                  }
+                  
+                  print(f"Generated/Updated Pod IDs: {pod_ids}")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, project_id)
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Custom resource to generate pod IDs
+  GeneratePodIdsCustomResource:
+    Type: Custom::GeneratePodIds
+    Properties:
+      ServiceToken: !GetAtt GeneratePodIdsFunction.Arn
+      ProjectId: !GetAtt GenerateProjectIdCustomResource.ProjectId
+      PodCount: !Ref PodCount
+
+      
   # ACM Certificate for domain and wildcard subdomain
   DomainCertificate:
     Type: AWS::CertificateManager::Certificate
