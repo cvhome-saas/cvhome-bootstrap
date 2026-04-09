@@ -52,8 +52,8 @@ Parameters:
     Description: Number of pods to create
     Default: 0
     MinValue: 0
-    MaxValue: 5
-    ConstraintDescription: Must be a number between 1 and 5
+    MaxValue: 20
+    ConstraintDescription: Must be a number between 0 and 20
 
   PodSize:
     Type: String
