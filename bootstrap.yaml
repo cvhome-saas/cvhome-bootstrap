@@ -52,8 +52,8 @@ Parameters:
     Description: Number of pods to create
     Default: 0
     MinValue: 0
-    MaxValue: 5
-    ConstraintDescription: Must be a number between 1 and 5
+    MaxValue: 20
+    ConstraintDescription: Must be a number between 0 and 20
 
   PodSize:
     Type: String
@@ -319,6 +319,102 @@ Resources:
       ServiceToken: !GetAtt GetHostedZoneFunction.Arn
       HostedZoneId: !Ref DomainZoneId
 
+  
+  # Lambda execution role for generating pod IDs
+  GeneratePodIdsFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Lambda function to generate BSON-style pod IDs
+  GeneratePodIdsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${GenerateProjectIdCustomResource.ProjectId}-generate-pod-ids'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt GeneratePodIdsFunctionRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import cfnresponse
+          import json
+          import secrets
+          
+          def generate_bson_id():
+              """Generate a BSON-like ID: 24-character hex string (12 bytes)"""
+              return secrets.token_hex(12)
+          
+          def handler(event, context):
+              try:
+                  print(f"Event: {json.dumps(event)}")
+                  
+                  project_id = event['ResourceProperties'].get('ProjectId')
+                  pod_count = int(event['ResourceProperties'].get('PodCount', 0))
+                  
+                  # Handle Delete
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, event['PhysicalResourceId'])
+                      return
+                  
+                  # Handle Create/Update: we will store the current Pod IDs in the PhysicalResourceId
+                  # PhysicalResourceId format: project_id:id1,id2,id3...
+                  
+                  existing_ids = []
+                  if event['RequestType'] == 'Update':
+                      physical_id = event['PhysicalResourceId']
+                      if ':' in physical_id:
+                          existing_ids_str = physical_id.split(':', 1)[1]
+                          existing_ids = existing_ids_str.split(',') if existing_ids_str else []
+                  
+                  current_count = len(existing_ids)
+                  
+                  if pod_count > current_count:
+                      # Append new IDs
+                      new_ids = [generate_bson_id() for _ in range(pod_count - current_count)]
+                      pod_ids = existing_ids + new_ids
+                  elif pod_count < current_count:
+                      # Delete last value(s)
+                      pod_ids = existing_ids[:pod_count]
+                  else:
+                      # Do nothing
+                      pod_ids = existing_ids
+                  
+                  # On Create, we might have no existing_ids
+                  if event['RequestType'] == 'Create' and not pod_ids:
+                      pod_ids = [generate_bson_id() for _ in range(pod_count)]
+
+                  new_physical_id = f"{project_id}:{','.join(pod_ids)}"
+                  
+                  response_data = {
+                      'PodIds': pod_ids,
+                      'PodIdsJson': json.dumps(pod_ids)
+                  }
+                  
+                  print(f"Pod IDs: {pod_ids}")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, new_physical_id)
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+
+  # Custom resource to generate pod IDs
+  GeneratePodIdsCustomResource:
+    Type: Custom::GeneratePodIds
+    Properties:
+      ServiceToken: !GetAtt GeneratePodIdsFunction.Arn
+      ProjectId: !GetAtt GenerateProjectIdCustomResource.ProjectId
+      PodCount: !Ref PodCount
+
+      
   # ACM Certificate for domain and wildcard subdomain
   DomainCertificate:
     Type: AWS::CertificateManager::Certificate
@@ -354,12 +450,14 @@ Resources:
               "is_prod": "${isProd}",
               "is_monitoring": "${isMonitoring}",
               "allow_test_stores": "${allowTestStores}",
+              "pod_ids": ${PodIdsJson},
               "price_planes": ${PricePlanes}
             }
           - PricePlanes: !If
               - HasStripeKey
               - !GetAtt InitStripeCustomResource.created_json
               - "[]"
+            PodIdsJson: !GetAtt GeneratePodIdsCustomResource.PodIdsJson
       Description: Cvhome configuration for the application
 
 
