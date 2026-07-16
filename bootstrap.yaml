@@ -232,6 +232,12 @@ Resources:
       RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/cua'
       EmptyOnDelete: true
 
+  PaymentRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${GenerateProjectIdCustomResource.ProjectId}/store-pod/payment'
+      EmptyOnDelete: true
+
   LandingUIRepository:
     Type: AWS::ECR::Repository
     Properties:
