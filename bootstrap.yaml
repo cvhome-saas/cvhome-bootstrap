@@ -664,17 +664,16 @@ Resources:
       ServiceToken: !GetAtt StripeInitFunction.Arn
   
   
-  KeycloakConfigSecret:
+  UaaConfigSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub "/${GenerateProjectIdCustomResource.ProjectId}/config/kc"
-      Description: Keycloak admin configuration
+      Description: uaa admin configuration
       GenerateSecretString:
         SecretStringTemplate: |
           {
-            "KEYCLOAK_ADMIN": "sys-admin@mail.com"
           }
-        GenerateStringKey: "KEYCLOAK_ADMIN_PASSWORD"
+        GenerateStringKey: "COM_ASREVO_CVHOME_ADMIN_PASSWORD"
         PasswordLength: 20
         ExcludeCharacters: "\"@/\\"
 
